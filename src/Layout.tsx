@@ -1,19 +1,56 @@
-// function Layout() {
-//   return <div></div>;
-// }
+import styled from "styled-components";
+import { getContext } from "./App";
+import { useSignal } from "./hooks";
 
-// export default Layout;
+const LayoutContainer = styled.div`
+  height: 100vh;
+  width: 100vw;
+  display: grid;
+  gap: 5px;
+  grid-template-columns: fit-content(20%) 1fr;
+  grid-template-rows: fit-content(20%) 1fr fit-content(20%);
+  grid-template-areas:
+    "topbar topbar"
+    "sidebar content"
+    "footer footer";
+`;
 
-// // GridComponent.tsx
-// import React from "react";
-// import "./GridComponent.css"; // Import the CSS file for styling
+const SidebarContainer = styled.div`
+  grid-area: sidebar;
+`;
 
-// interface GridComponentProps {
-//   children: React.ReactNode; // Accept any valid React node as children
-// }
+const ContentContainer = styled.div`
+  grid-area: content;
+`;
 
-// const GridComponent: React.FC<GridComponentProps> = ({ children }) => {
-//   return <div className="grid-container">{children}</div>;
-// };
+const TopbarContainer = styled.div`
+  grid-area: topbar;
+`;
 
-// export default GridComponent;
+const FooterContainer = styled.div`
+  grid-area: footer;
+`;
+
+type LayoutProps = {
+  topbar: React.ReactNode;
+  sidebar: React.ReactNode;
+  content: React.ReactNode;
+  footer: React.ReactNode;
+};
+
+function Layout({ topbar, sidebar, content, footer }: LayoutProps) {
+  const curr = useSignal(getContext().currDirectory);
+
+  return (
+    <LayoutContainer>
+      <TopbarContainer>{topbar}</TopbarContainer>
+      <SidebarContainer>{sidebar}</SidebarContainer>
+      <ContentContainer>
+        {content} {curr}
+      </ContentContainer>
+      <FooterContainer>{footer}</FooterContainer>
+    </LayoutContainer>
+  );
+}
+
+export default Layout;

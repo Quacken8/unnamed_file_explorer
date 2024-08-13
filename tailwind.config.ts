@@ -1,4 +1,3 @@
-// import { chartiumTheme } from "./chartium-theme";
 import type { Config } from "tailwindcss";
 
 const config = {
