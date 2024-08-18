@@ -29,6 +29,16 @@ export function search(
   });
 }
 
+export function readTty() {
+  return invoke()<TtyIO>("read_tty");
+}
+
+export function writeTty(io: TtyIO) {
+  return invoke()<null>("write_tty", { io });
+}
+
+export type TtyIO = { bytes: number[] };
+export type FileSize = { size: number; order: number };
 export type FileFolderMetadata = {
   name: string;
   path: string;
@@ -36,4 +46,3 @@ export type FileFolderMetadata = {
   modified: number | null;
   is_folder: boolean;
 };
-export type FileSize = { size: number; order: number };
