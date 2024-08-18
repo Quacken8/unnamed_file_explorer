@@ -22,3 +22,4 @@ tauri-specta = { version = "1.0.2", features = ["javascript", "typescript"] }
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
+codegen = []

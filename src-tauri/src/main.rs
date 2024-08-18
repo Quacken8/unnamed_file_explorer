@@ -2,7 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use rust_search::{similarity_sort, SearchBuilder};
-use serde::{de, Serialize};
+use serde::Serialize;
 use specta::{collect_types, Type};
 use std::time::SystemTime;
 use std::{collections::HashMap, fs::metadata, os::unix::fs::MetadataExt, time::Instant};
@@ -75,6 +75,14 @@ async fn search(
     Ok(res)
 }
 
+#[tauri::command]
+#[specta::specta]
+async fn timer() -> () {
+    println!("Timer scheduled!");
+    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+    println!("Timer elapsed!");
+}
+
 fn cache_dir() -> () {
     let start = Instant::now();
     let mut map: HashMap<String, Vec<String>> = HashMap::new();
@@ -102,20 +110,33 @@ fn cache_dir() -> () {
 }
 
 fn main() {
-    tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![get_contents, search])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+    if cfg!(feature = "codegen") {
+        export_bindings();
+    } else {
+        tauri::Builder::default()
+            .invoke_handler(tauri::generate_handler![get_contents, search])
+            .run(tauri::generate_context!())
+            .expect("error while running tauri application");
+    }
 }
 
-#[test]
+#[allow(dead_code)]
 fn export_bindings() {
-    ts::export(collect_types![get_contents, search], "../src/bindings.ts").unwrap();
+    ts::export(
+        collect_types![get_contents, search],
+        "../src/bindings.ts",
+    )
+    .unwrap();
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn bindings() {
+        export_bindings();
+    }
+
     #[test]
     fn test_cache_dir() {
         cache_dir();
