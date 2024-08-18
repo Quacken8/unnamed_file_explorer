@@ -15,6 +15,7 @@ import Sidebar from "./Sidebar";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api";
 import FileFolder from "./components/FileFolder";
+import Terminal from "./components/Terminal";
 
 // function App() {
 //   const [greetMsg, setGreetMsg] = useState("");
@@ -96,7 +97,7 @@ function App() {
               : "—"}
           </>
         }
-        footer={<h1>Footer</h1>}
+        footer={<Terminal />}
       />
     </Context.Provider>
   );

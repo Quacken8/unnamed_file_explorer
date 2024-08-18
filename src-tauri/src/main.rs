@@ -2,11 +2,18 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use rust_search::{similarity_sort, SearchBuilder};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use specta::{collect_types, Type};
+use std::os::fd::{AsFd, AsRawFd, OwnedFd};
+use std::sync::Arc;
 use std::time::SystemTime;
 use std::{collections::HashMap, fs::metadata, os::unix::fs::MetadataExt, time::Instant};
+use tauri::Manager;
 use tauri_specta::ts;
+
+struct AppState {
+    tty: Arc<parking_lot::Mutex<OwnedFd>>,
+}
 
 #[derive(Serialize, Type)]
 struct FileSize {
@@ -30,6 +37,11 @@ struct FileFolderMetadata {
     size: FileSize,
     modified: Option<u32>,
     is_folder: bool,
+}
+
+#[derive(Clone, Serialize, Deserialize, Type)]
+struct TtyIO {
+    bytes: Vec<u8>,
 }
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
@@ -75,12 +87,42 @@ async fn search(
     Ok(res)
 }
 
+fn spawn_tty(shell: &std::ffi::CStr, args: &[std::ffi::CString]) -> OwnedFd {
+    unsafe {
+        match nix::pty::forkpty(None, None).unwrap() {
+            nix::pty::ForkptyResult::Child => {
+                nix::unistd::execvp::<std::ffi::CString>(shell, args).unwrap();
+                unreachable!()
+            }
+            nix::pty::ForkptyResult::Parent { child: _, master } => {
+                let _ = nix::fcntl::fcntl(
+                    master.as_raw_fd(),
+                    nix::fcntl::FcntlArg::F_SETFL(nix::fcntl::OFlag::O_NONBLOCK),
+                );
+                master
+            }
+        }
+    }
+}
+
 #[tauri::command]
 #[specta::specta]
-async fn timer() -> () {
-    println!("Timer scheduled!");
-    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-    println!("Timer elapsed!");
+fn read_tty(app: tauri::AppHandle) -> TtyIO {
+    let tty = app.state::<AppState>().tty.clone();
+    let mut buf = vec![0u8; 1024];
+
+    let len = nix::unistd::read(tty.lock().as_raw_fd(), &mut buf[0..]).unwrap_or(0);
+
+    TtyIO {
+        bytes: buf[0..len].into(),
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+fn write_tty(app: tauri::AppHandle, io: TtyIO) {
+    let tty = app.state::<AppState>().tty.clone();
+    nix::unistd::write(tty.lock().as_fd(), &io.bytes).unwrap();
 }
 
 fn cache_dir() -> () {
@@ -114,7 +156,15 @@ fn main() {
         export_bindings();
     } else {
         tauri::Builder::default()
-            .invoke_handler(tauri::generate_handler![get_contents, search])
+            .manage(AppState {
+                tty: Arc::new(parking_lot::Mutex::new(spawn_tty(c"sh", &[]))),
+            })
+            .invoke_handler(tauri::generate_handler![
+                get_contents,
+                search,
+                read_tty,
+                write_tty
+            ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");
     }
@@ -122,11 +172,25 @@ fn main() {
 
 #[allow(dead_code)]
 fn export_bindings() {
-    ts::export(
-        collect_types![get_contents, search],
-        "../src/bindings.ts",
+    static PATH: &str = "../src/bindings.ts";
+    ts::Exporter::new(
+        collect_types![get_contents, search, read_tty, write_tty],
+        PATH,
     )
+    .export()
     .unwrap();
+
+    // let conf = specta::ts::ExportConfiguration::default();
+    // let mut extra_types = String::new();
+    // extra_types += &specta::ts::export::<TtyIO>(&conf).unwrap();
+
+    // std::fs::OpenOptions::new()
+    //     .write(true)
+    //     .append(true)
+    //     .open(PATH)
+    //     .unwrap()
+    //     .write(extra_types.as_bytes())
+    //     .unwrap();
 }
 
 #[cfg(test)]
