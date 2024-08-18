@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "codegen": "(cd src-tauri; cargo run --features=codegen); prettier -w src/bindings.ts",
+    "test": "(cd src-tauri; cargo test)",
     "tauri": "tauri"
   },
   "dependencies": {
